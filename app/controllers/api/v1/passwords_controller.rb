@@ -1,5 +1,5 @@
 class Api::V1::PasswordsController < ApplicationController
-  skip_authentication
+  allow_unauthenticated_access
   before_action :set_user_by_token, only: %i[update]
 
   def create

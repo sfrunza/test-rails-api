@@ -1,41 +1,83 @@
 module Authentication
   extend ActiveSupport::Concern
 
-  included do
-    before_action :authenticate_request
-    attr_reader :current_user
-  end
+  JWT_SECRET = Rails.application.credentials.dig(:jwt_secret)
+
+  included { before_action :require_authentication }
 
   class_methods do
-    def skip_authentication(**options)
-      skip_before_action :authenticate_request, **options
+    def allow_unauthenticated_access(**options)
+      skip_before_action :require_authentication, **options
     end
   end
 
   private
-    def authenticate_request
-      header = request.headers["Authorization"]
-      token = header.split(" ").last if header
 
-      begin
-        decoded = JwtService.decode(token)
-        if decoded && decoded["type"] == "access"
-          @current_user = User.find(decoded["user_id"])
-        else
-          render json: { error: "Invalid token" }, status: :unauthorized
-        end
-      rescue JWT::DecodeError
-        render json: { error: "Invalid token" }, status: :unauthorized
+  def authenticated?
+    resume_session || authenticate_with_token
+  end
+
+  def require_authentication
+    unless authenticated?
+      render json: { error: "Unauthorized" }, status: :unauthorized
+    end
+  end
+
+  def resume_session
+    Current.session ||= find_session_by_cookie
+  end
+
+  def find_session_by_cookie
+    if cookies.signed[:session_id]
+      Session.find_by(id: cookies.signed[:session_id])
+    end
+  end
+
+  def authenticate_with_token
+    header = request.headers["Authorization"]
+    return nil unless header
+
+    token = header.split(" ").last
+    begin
+      decoded_token = JWT.decode(token, JWT_SECRET, true, algorithm: "HS256")
+      Current.session ||= Session.find(decoded_token.first["session_id"])
+    rescue JWT::DecodeError
+      nil
+    end
+  end
+
+  def start_new_session_for(user)
+    user
+      .sessions
+      .create!(user_agent: request.user_agent, ip_address: request.remote_ip)
+      .tap do |session|
+        Current.session = session
+        token = generate_jwt_token(session)
+
+        cookies.signed.permanent[:session_id] = {
+          value: session.id,
+          expires: 30.days.from_now,
+          # httponly: true,
+          same_site: :strict,
+          secure: Rails.env.production?
+        }
+
+        @auth_token = token
       end
-    end
+  end
 
-    def authenticate_user
-      unless current_user
-        render json: { error: "Unauthorized" }, status: :unauthorized
-      end
-    end
+  def generate_jwt_token(session)
+    payload = {
+      session_id: session.id,
+      user_id: session.user_id,
+      exp: 15.minutes.from_now.to_i
+    }
 
-    def generate_tokens(user)
-      JwtService.generate_tokens(user)
-    end
+    JWT.encode(payload, JWT_SECRET, "HS256")
+  end
+
+  def terminate_session
+    Current.session&.destroy
+    cookies.delete(:session_id)
+  end
 end

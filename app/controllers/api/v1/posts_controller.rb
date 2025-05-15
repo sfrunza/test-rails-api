@@ -1,7 +1,7 @@
 class Api::V1::PostsController < ApplicationController
   include ApiErrorHandler
 
-  skip_authentication only: %i[ index show ]
+  allow_unauthenticated_access only: %i[ index show ]
   before_action :set_post, only: %i[ show update destroy ]
 
   # GET /posts
