@@ -7,11 +7,8 @@
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
    allow do
-    if Rails.env.development?
-      origins "localhost:3000", "localhost:3001", "http://localhost:4173"
-    else
-      origins "https://rails-api-with-auth-4f67f5bd980d.herokuapp.com"
-    end
+    origins "#{Rails.application.credentials.dig(:frontend_url)}"
+
 
    resource "*",
              headers: :any,

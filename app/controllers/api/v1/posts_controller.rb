@@ -1,13 +1,13 @@
 class Api::V1::PostsController < ApplicationController
+  include ApiErrorHandler
+
+  skip_authentication only: %i[ index show ]
   before_action :set_post, only: %i[ show update destroy ]
 
   # GET /posts
   def index
-    posts = Rails.cache.fetch("posts/index", expires_in: 10.minutes) do
-      Post.all.to_a
-    end
-
-    render json: posts
+    @posts = Post.all
+    render json: @posts, each_serializer: PostSerializer
   end
 
   # GET /posts/1
@@ -20,9 +20,9 @@ class Api::V1::PostsController < ApplicationController
     @post = Post.new(post_params)
 
     if @post.save
-      render json: @post, status: :created, location: @post
+      render json: @post, status: :created
     else
-      render json: @post.errors, status: :unprocessable_entity
+      render json: { error: @post.errors.full_messages }, status: :unprocessable_entity
     end
   end
 
@@ -31,23 +31,22 @@ class Api::V1::PostsController < ApplicationController
     if @post.update(post_params)
       render json: @post
     else
-      render json: @post.errors, status: :unprocessable_entity
+      render json: { error: @post.errors.full_messages }, status: :unprocessable_entity
     end
   end
 
   # DELETE /posts/1
   def destroy
-    @post.destroy!
+    @post.destroy
+    head :no_content
   end
 
   private
-    # Use callbacks to share common setup or constraints between actions.
     def set_post
-      @post = Post.find(params.expect(:id))
+      @post = Post.find(params[:id])
     end
 
-    # Only allow a list of trusted parameters through.
     def post_params
-      params.fetch(:post, {}).permit(:title, :body)
+      params.require(:post).permit(:title, :body)
     end
 end
