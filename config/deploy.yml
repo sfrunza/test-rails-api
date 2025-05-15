@@ -7,7 +7,7 @@ image: registry.fly.io/my-project-api
 # Deploy to these servers.
 servers:
   web:
-    - 66.241.124.169
+    - my-project-api.fly.dev
   # job:
   #   hosts:
   #     - 192.168.0.1
@@ -25,7 +25,7 @@ proxy:
 registry:
   # Specify the registry server, if you're not using Docker Hub
   # server: registry.digitalocean.com / ghcr.io / ...
-  username: KAMAL_REGISTRY_USERNAME
+  username: your-user
 
   # Always use an access token rather than real password when possible.
   password:
