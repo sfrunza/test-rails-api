@@ -1,5 +1,5 @@
 class Api::V1::SessionsController < ApplicationController
-  allow_unauthenticated_access only: %i[ create refresh ]
+  allow_unauthenticated_access only: %i[create]
   rate_limit to: 10,
              within: 3.minutes,
              only: :create,
